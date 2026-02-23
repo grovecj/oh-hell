@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 
 import socketio
+from sqlalchemy import select
 
 from app.game.engine import GameError
 from app.game.types import Card, GameConfig, GamePhase, Rank, ScoringVariant, Suit
@@ -22,8 +24,16 @@ from app.sockets.emitters import (
 )
 from app.sockets.manager import manager
 from app.services.auth_service import decode_token
+from app.database import async_session
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+NUM_AVATARS = 12
+
+
+def _random_avatar_url() -> str:
+    return f"/avatars/avatar-{random.randint(1, NUM_AVATARS)}.svg"
 
 
 def register_handlers(sio: socketio.AsyncServer):
@@ -42,8 +52,27 @@ def register_handlers(sio: socketio.AsyncServer):
             logger.warning(f"Connection rejected: invalid token from {sid}: {e}")
             raise socketio.exceptions.ConnectionRefusedError("Invalid token")
 
+        # Look up avatar_url from database
+        avatar_url = None
+        try:
+            async with async_session() as db:
+                result = await db.execute(
+                    select(User.avatar_url).where(User.id == player_id)
+                )
+                avatar_url = result.scalar_one_or_none()
+        except Exception as e:
+            logger.warning(f"Could not look up avatar for {player_id}: {e}")
+
+        # Assign random avatar for users without one
+        if not avatar_url:
+            avatar_url = _random_avatar_url()
+
         manager.register_sid(sid, player_id)
-        await sio.save_session(sid, {"player_id": player_id, "display_name": display_name})
+        await sio.save_session(sid, {
+            "player_id": player_id,
+            "display_name": display_name,
+            "avatar_url": avatar_url,
+        })
         logger.info(f"Client connected: {sid} (player: {player_id})")
 
     @sio.event
@@ -81,6 +110,7 @@ def register_handlers(sio: socketio.AsyncServer):
         session = await sio.get_session(sid)
         player_id = session["player_id"]
         display_name = session["display_name"]
+        avatar_url = session.get("avatar_url")
         room_code = data.get("room_code", "").strip().upper()
 
         if not room_code:
@@ -88,7 +118,7 @@ def register_handlers(sio: socketio.AsyncServer):
             return
 
         try:
-            engine = manager.join_game(room_code, player_id, display_name)
+            engine = manager.join_game(room_code, player_id, display_name, avatar_url=avatar_url)
         except GameError as e:
             await emit_error(sio, sid, str(e))
             return
@@ -116,6 +146,7 @@ def register_handlers(sio: socketio.AsyncServer):
         session = await sio.get_session(sid)
         player_id = session["player_id"]
         display_name = session["display_name"]
+        avatar_url = session.get("avatar_url")
 
         # Parse config if provided
         config = None
@@ -128,7 +159,7 @@ def register_handlers(sio: socketio.AsyncServer):
                 max_players=min(max(cfg.get("max_players", 7), 3), 7),
             )
 
-        engine = manager.create_game(player_id, display_name, config)
+        engine = manager.create_game(player_id, display_name, config, avatar_url=avatar_url)
         room_code = engine.room_code
 
         await sio.enter_room(sid, room_code)
@@ -275,7 +306,7 @@ def register_handlers(sio: socketio.AsyncServer):
         bot_name = f"Bot {bot_num}"
 
         try:
-            engine.add_player(bot_id, bot_name, is_bot=True)
+            engine.add_player(bot_id, bot_name, is_bot=True, avatar_url=_random_avatar_url())
         except GameError as e:
             await emit_error(sio, sid, str(e))
             return

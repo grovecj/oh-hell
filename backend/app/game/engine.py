@@ -52,7 +52,7 @@ class GameEngine:
     def room_code(self) -> str:
         return self.state.room_code
 
-    def add_player(self, player_id: str, display_name: str, is_bot: bool = False) -> PlayerState:
+    def add_player(self, player_id: str, display_name: str, is_bot: bool = False, avatar_url: str | None = None) -> PlayerState:
         if self.state.phase != GamePhase.LOBBY:
             raise GameError("Cannot add players after game has started")
         if len(self.state.players) >= self.state.config.max_players:
@@ -66,6 +66,7 @@ class GameEngine:
             display_name=display_name,
             seat_index=seat,
             is_bot=is_bot,
+            avatar_url=avatar_url,
         )
         self.state.players.append(player)
 
@@ -323,6 +324,7 @@ class GameEngine:
                 "seat_index": p.seat_index,
                 "is_bot": p.is_bot,
                 "is_connected": p.is_connected,
+                "avatar_url": p.avatar_url,
                 "card_count": len(p.hand),
                 "bid": p.bid,
                 "tricks_won": p.tricks_won,

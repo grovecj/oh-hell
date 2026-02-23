@@ -44,6 +44,7 @@ async def emit_player_joined(sio: socketio.AsyncServer, engine: GameEngine, play
                 "seat_index": player.seat_index,
                 "is_bot": player.is_bot,
                 "is_connected": player.is_connected,
+                "avatar_url": player.avatar_url,
                 "card_count": 0,
                 "bid": None,
                 "tricks_won": 0,

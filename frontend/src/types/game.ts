@@ -15,6 +15,7 @@ export interface PlayerInfo {
   seat_index: number;
   is_bot: boolean;
   is_connected: boolean;
+  avatar_url?: string;
   card_count: number;
   bid: number | null;
   tricks_won: number;

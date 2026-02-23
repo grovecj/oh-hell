@@ -19,18 +19,18 @@ class GameRoomManager:
         self.player_to_sid: dict[str, str] = {}  # player_id → socket sid
         self._disconnect_tasks: dict[str, asyncio.Task] = {}  # player_id → auto-play task
 
-    def create_game(self, host_id: str, host_name: str, config: GameConfig | None = None) -> GameEngine:
+    def create_game(self, host_id: str, host_name: str, config: GameConfig | None = None, avatar_url: str | None = None) -> GameEngine:
         room_code = generate_room_code()
         while room_code in self.games:
             room_code = generate_room_code()
 
         engine = GameEngine(room_code=room_code, config=config)
-        engine.add_player(host_id, host_name)
+        engine.add_player(host_id, host_name, avatar_url=avatar_url)
         self.games[room_code] = engine
         self.player_rooms[host_id] = room_code
         return engine
 
-    def join_game(self, room_code: str, player_id: str, display_name: str) -> GameEngine:
+    def join_game(self, room_code: str, player_id: str, display_name: str, avatar_url: str | None = None) -> GameEngine:
         engine = self.games.get(room_code)
         if not engine:
             raise GameError("Game not found")
@@ -44,7 +44,7 @@ class GameRoomManager:
                 return engine
             raise GameError("Game already in progress")
 
-        engine.add_player(player_id, display_name)
+        engine.add_player(player_id, display_name, avatar_url=avatar_url)
         self.player_rooms[player_id] = room_code
         return engine
 

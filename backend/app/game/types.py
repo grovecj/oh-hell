@@ -84,6 +84,7 @@ class PlayerState:
     seat_index: int
     is_bot: bool = False
     is_connected: bool = True
+    avatar_url: str | None = None
     hand: list[Card] = field(default_factory=list)
     bid: int | None = None
     tricks_won: int = 0

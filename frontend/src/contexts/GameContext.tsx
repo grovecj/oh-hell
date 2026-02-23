@@ -34,7 +34,7 @@ const initialState: GameContextState = {
 function gameReducer(state: GameContextState, action: GameAction): GameContextState {
   switch (action.type) {
     case 'SET_STATE':
-      return { ...state, gameState: action.payload, lastTrick: null };
+      return { ...state, gameState: action.payload, lastTrick: null, lastRoundScores: null };
     case 'PLAYER_JOINED':
       if (!state.gameState) return state;
       return {
@@ -122,6 +122,8 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
       if (!state.gameState) return state;
       return {
         ...state,
+        lastTrick: null,
+        lastRoundScores: null,
         gameState: {
           ...state.gameState,
           hand: action.payload.hand,
@@ -129,6 +131,7 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
           trump_suit: action.payload.trump_suit as GameState['trump_suit'],
           hand_size: action.payload.hand_size,
           round_number: action.payload.round_number,
+          current_trick: [],
         },
       };
     case 'CLEAR':
