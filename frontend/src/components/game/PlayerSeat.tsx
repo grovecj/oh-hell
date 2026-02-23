@@ -22,29 +22,27 @@ const HAND_ROTATION: Record<number, Record<number, number>> = {
   7: { 1: 95, 2: 130, 3: 160, 4: -160, 5: -130, 6: -95 },
 };
 
-// Offset direction (in degrees) for the card fan, pointing toward table center
-// seatIndex 0 is "me" at bottom — no fan shown. Others offset away from edge.
+// Offset the card fan OUTWARD from table center (behind the player info)
+// so it looks like the player is holding cards from their seat at the edge.
 function getFanOffset(seatIndex: number, playerCount: number): { x: number; y: number } {
   if (seatIndex === 0) return { x: 0, y: 0 };
   const rotation = HAND_ROTATION[playerCount]?.[seatIndex] ?? 0;
-  // Convert rotation to radians; the rotation points the fan toward center,
-  // so we offset the fan in that direction (away from the player info)
   const rad = (rotation * Math.PI) / 180;
-  // Offset distance in px — enough to clear the name pill + avatar
-  const dist = 120;
+  // Offset AWAY from center (negative = outward)
+  const dist = -70;
   return { x: Math.sin(rad) * dist, y: -Math.cos(rad) * dist };
 }
 
 function FaceDownHand({ count, rotation }: { count: number; rotation: number }) {
   if (count <= 0) return null;
-  const cardWidth = 156;
-  const exposed = 40;
+  const cardWidth = 110; // md card width
+  const exposed = 28;
   const fanWidth = cardWidth + (count - 1) * exposed;
   return (
     <div
       className="relative flex justify-center"
       style={{
-        height: 216,
+        height: 160, // md card height
         width: fanWidth,
         transform: `rotate(${rotation}deg)`,
       }}
@@ -63,7 +61,7 @@ function FaceDownHand({ count, rotation }: { count: number; rotation: number }) 
               zIndex: i,
             }}
           >
-            <Card card={{ suit: 'spades', rank: 'A' }} size="lg" faceDown />
+            <Card card={{ suit: 'spades', rank: 'A' }} size="md" faceDown />
           </div>
         );
       })}
