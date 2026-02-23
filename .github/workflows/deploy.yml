@@ -1,0 +1,65 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy source to Droplet
+        uses: burnett01/rsync-deployments@6.0.0
+        with:
+          switches: -avz --delete --exclude='.env' --exclude='node_modules' --exclude='.venv' --exclude='__pycache__' --exclude='frontend/dist'
+          path: ./
+          remote_path: /opt/oh-hell/
+          remote_host: ${{ secrets.DROPLET_IP }}
+          remote_user: deploy
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Build & Restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -e
+            export PATH="$HOME/.local/bin:$PATH"
+            cd /opt/oh-hell
+
+            # Write .env for backend
+            printf '%s\n' \
+              'DATABASE_URL=${{ secrets.DATABASE_URL }}' \
+              'JWT_SECRET=${{ secrets.JWT_SECRET }}' \
+              'GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}' \
+              'GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}' \
+              'GOOGLE_REDIRECT_URI=https://ohhell.cartergrove.me/api/auth/google/callback' \
+              'FRONTEND_URL=https://ohhell.cartergrove.me' \
+              'ENVIRONMENT=production' \
+              > backend/.env
+
+            # Build frontend
+            cd frontend
+            npm ci
+            npm run build
+            cd ..
+
+            # Copy built frontend to backend static dir
+            rm -rf backend/static
+            cp -r frontend/dist backend/static
+
+            # Install backend dependencies
+            cd backend
+            uv sync
+
+            # Run database migrations
+            uv run alembic upgrade head || echo "Migrations failed (may already be up to date)"
+
+            # Restart application via PM2
+            pm2 restart oh-hell || pm2 start "uv run uvicorn app.main:app --host 127.0.0.1 --port 8000" --name oh-hell --cwd /opt/oh-hell/backend
+            pm2 save
