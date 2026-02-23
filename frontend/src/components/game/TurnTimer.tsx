@@ -30,8 +30,8 @@ export default function TurnTimer({ timeRemaining, isMyTurn }: TurnTimerProps) {
       'fixed top-1/2 right-4 -translate-y-1/2 rounded-xl px-4 py-3 text-center shadow-lg z-40 transition-colors',
       urgent ? 'bg-destructive text-white animate-pulse' : 'bg-card border border-border',
     )}>
-      <div className="text-xs text-muted-foreground mb-1">{isMyTurn ? 'Your turn!' : ''}</div>
-      <div className={cn('text-2xl font-bold font-mono', urgent && 'text-white')}>
+      <div className="text-sm text-muted-foreground mb-1">{isMyTurn ? 'Your turn!' : ''}</div>
+      <div className={cn('text-3xl font-bold font-mono', urgent && 'text-white')}>
         {seconds}s
       </div>
     </div>

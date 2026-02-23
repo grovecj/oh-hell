@@ -8,6 +8,7 @@ import GameOverScreen from './GameOverScreen';
 import RoundInfo from './RoundInfo';
 import Chat from './Chat';
 import TurnTimer from './TurnTimer';
+import RoundSummary from './RoundSummary';
 
 // Seat positions around an oval table (percentages)
 const SEAT_POSITIONS: Record<number, { x: string; y: string }[]> = {
@@ -50,7 +51,7 @@ const SEAT_POSITIONS: Record<number, { x: string; y: string }[]> = {
 
 export default function GameTable() {
   const {
-    gameState, lastTrick, gameOverData,
+    gameState, lastTrick, lastRoundScores, gameOverData,
     placeBid, playCard,
   } = useGame();
 
@@ -85,7 +86,14 @@ export default function GameTable() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-background">
+    <div className="relative h-screen w-screen overflow-hidden">
+      {/* Background image — mansion game room */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/bg-gameroom.jpg')" }}
+      />
+      <div className="absolute inset-0 bg-black/50" />
+
       {/* Round info */}
       <RoundInfo
         roundNumber={round_number}
@@ -100,7 +108,18 @@ export default function GameTable() {
 
       {/* Table surface */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-[90vw] max-w-4xl h-[60vh] rounded-[50%] bg-gradient-to-b from-emerald-900/30 to-emerald-950/40 border-4 border-emerald-800/30">
+        <div
+          className="relative w-[90vw] max-w-4xl h-[60vh] rounded-[50%]"
+          style={{
+            background: 'radial-gradient(ellipse at 40% 40%, #1a6b3c, #145a30 40%, #0f4824 70%, #0a3518)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 2px 8px rgba(0,0,0,0.3), inset 0 0 60px rgba(0,0,0,0.15)',
+          }}
+        >
+          {/* Felt texture overlay */}
+          <div className="absolute inset-0 rounded-[50%] opacity-20" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='4' height='4' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1' height='1' fill='%23000' fill-opacity='0.15'/%3E%3C/svg%3E")`,
+          }} />
+
           {/* Player seats */}
           {orderedPlayers.map((player, i) => (
             <PlayerSeat
@@ -110,6 +129,8 @@ export default function GameTable() {
               isDealer={player.id === dealer_id}
               isMe={player.id === my_id}
               position={positions[i] || { x: '50%', y: '50%' }}
+              seatIndex={i}
+              playerCount={players.length}
             />
           ))}
 
@@ -118,6 +139,7 @@ export default function GameTable() {
             <TrickArea
               currentTrick={current_trick}
               lastTrick={lastTrick}
+              orderedPlayerIds={orderedPlayers.map(p => p.id)}
             />
           </div>
         </div>
@@ -145,6 +167,15 @@ export default function GameTable() {
 
       {/* Turn timer */}
       <TurnTimer timeRemaining={30} isMyTurn={isMyTurn} />
+
+      {/* Round summary */}
+      {lastRoundScores && (
+        <RoundSummary
+          scores={lastRoundScores.scores}
+          roundNumber={lastRoundScores.round_number}
+          players={players}
+        />
+      )}
 
       {/* Chat */}
       <Chat />

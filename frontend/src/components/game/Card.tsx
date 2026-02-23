@@ -14,21 +14,29 @@ function getCardImageUrl(card: CardType): string {
   return `/cards/${card.rank}${suit}.svg`;
 }
 
+type CardSize = 'sm' | 'md' | 'lg';
+
+const SIZE_CLASSES: Record<CardSize, string> = {
+  sm: 'h-24 w-[66px]',
+  md: 'h-40 w-[110px]',
+  lg: 'h-[216px] w-[156px]',
+};
+
 interface CardProps {
   card: CardType;
   onClick?: () => void;
   disabled?: boolean;
   highlighted?: boolean;
-  small?: boolean;
+  size?: CardSize;
   faceDown?: boolean;
 }
 
-export default function Card({ card, onClick, disabled, highlighted, small, faceDown }: CardProps) {
+export default function Card({ card, onClick, disabled, highlighted, size = 'lg', faceDown }: CardProps) {
   if (faceDown) {
     return (
       <div className={cn(
         'rounded-lg overflow-hidden shadow-md',
-        small ? 'h-16 w-[44px]' : 'h-36 w-[104px]',
+        SIZE_CLASSES[size],
       )}>
         <img src="/cards/back.svg" alt="Card back" className="h-full w-full object-cover" />
       </div>
@@ -43,11 +51,11 @@ export default function Card({ card, onClick, disabled, highlighted, small, face
       whileTap={!disabled ? { scale: 0.95 } : undefined}
       className={cn(
         'relative rounded-lg overflow-hidden shadow-md transition-shadow',
-        small ? 'h-16 w-[44px]' : 'h-36 w-[104px]',
+        SIZE_CLASSES[size],
         highlighted && !disabled
           ? 'ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/30 cursor-pointer'
           : '',
-        disabled && !highlighted && 'opacity-50 cursor-not-allowed',
+        disabled && !highlighted && 'cursor-not-allowed',
         !disabled && highlighted && 'hover:shadow-xl',
       )}
     >

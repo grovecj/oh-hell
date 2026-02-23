@@ -50,11 +50,11 @@ export default function Chat() {
     <div className="fixed bottom-4 left-4 z-40">
       <button
         onClick={() => { setExpanded(!expanded); setUnread(0); }}
-        className="rounded-lg bg-card border border-border px-3 py-2 text-sm font-medium shadow-lg hover:bg-secondary transition relative"
+        className="rounded-lg bg-card border border-border px-4 py-2.5 text-base font-semibold shadow-lg hover:bg-secondary transition relative"
       >
         💬 Chat
         {unread > 0 && (
-          <span className="absolute -top-2 -right-2 rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
+          <span className="absolute -top-2 -right-2 rounded-full bg-primary px-2 py-0.5 text-sm text-primary-foreground">
             {unread}
           </span>
         )}
@@ -73,10 +73,10 @@ export default function Chat() {
               className="h-48 overflow-y-auto p-3 space-y-2"
             >
               {messages.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No messages yet</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No messages yet</p>
               ) : (
                 messages.map((msg, i) => (
-                  <div key={i} className="text-xs">
+                  <div key={i} className="text-sm">
                     <span className="font-semibold text-accent">{msg.display_name}: </span>
                     <span className="text-foreground/80">{msg.message}</span>
                   </div>
@@ -91,11 +91,11 @@ export default function Chat() {
                 onKeyDown={e => e.key === 'Enter' && handleSend()}
                 placeholder="Type a message..."
                 maxLength={200}
-                className="flex-1 rounded bg-muted px-2 py-1 text-xs focus:outline-none"
+                className="flex-1 rounded bg-muted px-3 py-1.5 text-sm focus:outline-none"
               />
               <button
                 onClick={handleSend}
-                className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"
+                className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground"
               >
                 Send
               </button>

@@ -28,9 +28,9 @@ export default function GameOverScreen({ players, gameOverData }: GameOverScreen
           🏆
         </motion.div>
 
-        <h2 className="text-2xl font-bold mb-1">Game Over!</h2>
+        <h2 className="text-3xl font-bold mb-1">Game Over!</h2>
         {winner && (
-          <p className="text-lg text-accent font-semibold mb-6">
+          <p className="text-xl text-accent font-semibold mb-6">
             {winner.display_name} wins with {winner.score} points!
           </p>
         )}
@@ -48,11 +48,11 @@ export default function GameOverScreen({ players, gameOverData }: GameOverScreen
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold w-8">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
-                <span className="font-medium">{player.display_name}</span>
-                {player.is_bot && <span className="text-xs">🤖</span>}
+                <span className="text-xl font-bold w-8">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                <span className="text-lg font-medium">{player.display_name}</span>
+                {player.is_bot && <span className="text-sm">🤖</span>}
               </div>
-              <span className="font-bold">{player.score}</span>
+              <span className="text-lg font-bold">{player.score}</span>
             </motion.div>
           ))}
         </div>
@@ -60,13 +60,13 @@ export default function GameOverScreen({ players, gameOverData }: GameOverScreen
         <div className="flex gap-3 justify-center">
           <Link
             to="/lobby"
-            className="rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground hover:opacity-90 transition"
+            className="rounded-lg bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground hover:opacity-90 transition"
           >
             Play Again
           </Link>
           <Link
             to="/"
-            className="rounded-lg bg-secondary px-6 py-2 font-semibold text-secondary-foreground hover:opacity-90 transition"
+            className="rounded-lg bg-secondary px-6 py-3 text-lg font-semibold text-secondary-foreground hover:opacity-90 transition"
           >
             Home
           </Link>

@@ -15,7 +15,7 @@ export default function Scoreboard({ players, scoresHistory }: ScoreboardProps) 
     <div className="fixed top-4 right-4 z-40">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="rounded-lg bg-card border border-border px-3 py-2 text-sm font-medium shadow-lg hover:bg-secondary transition"
+        className="rounded-lg bg-card border border-border px-4 py-2.5 text-base font-semibold shadow-lg hover:bg-secondary transition"
       >
         📊 Scoreboard
       </button>
@@ -29,18 +29,18 @@ export default function Scoreboard({ players, scoresHistory }: ScoreboardProps) 
             className="absolute top-12 right-0 w-80 max-h-[70vh] overflow-auto rounded-xl bg-card border border-border shadow-2xl"
           >
             <div className="p-4">
-              <h3 className="font-bold mb-3">Scores</h3>
+              <h3 className="text-lg font-bold mb-3">Scores</h3>
 
               {/* Current standings */}
               <div className="mb-4 space-y-1">
                 {[...players]
                   .sort((a, b) => b.score - a.score)
                   .map((p, i) => (
-                    <div key={p.id} className="flex justify-between text-sm">
+                    <div key={p.id} className="flex justify-between text-base">
                       <span className="flex items-center gap-1">
-                        <span className="text-muted-foreground w-4">{i + 1}.</span>
+                        <span className="text-muted-foreground w-5">{i + 1}.</span>
                         {p.display_name}
-                        {p.is_bot && <span className="text-xs">🤖</span>}
+                        {p.is_bot && <span className="text-sm">🤖</span>}
                       </span>
                       <span className="font-semibold">{p.score}</span>
                     </div>
@@ -50,9 +50,9 @@ export default function Scoreboard({ players, scoresHistory }: ScoreboardProps) 
               {/* Round-by-round history */}
               {scoresHistory.length > 0 && (
                 <div className="border-t border-border pt-3">
-                  <h4 className="text-xs font-medium text-muted-foreground mb-2">Round History</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Round History</h4>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">
                           <th className="text-left py-1 pr-2">Player</th>
