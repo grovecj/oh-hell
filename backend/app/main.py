@@ -1,8 +1,12 @@
+import logging
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("app").setLevel(logging.DEBUG)
 
 from app.config import settings
 from app.api.health import router as health_router
@@ -40,7 +44,7 @@ register_handlers(sio)
 sio.register_namespace(LobbyNamespace("/lobby"))
 
 # Mount Socket.IO as ASGI sub-app
-socket_app = socketio.ASGIApp(sio, other_app=app)
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 # Serve static frontend files in production
 static_dir = Path(__file__).parent.parent / "static"

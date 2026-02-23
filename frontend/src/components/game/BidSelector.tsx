@@ -14,9 +14,9 @@ export default function BidSelector({ validBids, handSize, onBid }: BidSelectorP
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-x-0 top-0 z-50 flex items-start justify-center pt-8 pointer-events-none"
     >
-      <div className="rounded-xl bg-card border border-border p-6 shadow-2xl max-w-md w-full mx-4">
+      <div className="rounded-xl bg-card border border-border p-6 shadow-2xl max-w-md w-full mx-4 pointer-events-auto">
         <h3 className="text-xl font-bold text-center mb-1">Place Your Bid</h3>
         <p className="text-sm text-muted-foreground text-center mb-4">
           How many tricks will you win? ({handSize} card{handSize !== 1 ? 's' : ''} this round)

@@ -66,6 +66,11 @@ export default function GameTable() {
   const isMyTurn = current_player_id === my_id;
   const showBidSelector = phase === 'bidding' && isMyTurn && valid_bids.length > 0;
 
+  // Debug: log any cards with missing data
+  if (hand.some(c => !c.suit || !c.rank)) {
+    console.warn('Hand contains invalid cards:', JSON.stringify(hand));
+  }
+
   // Reorder players so current player is at bottom (index 0)
   const myIndex = players.findIndex(p => p.id === my_id);
   const orderedPlayers = [

@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
-    database_url: str = "postgresql+asyncpg://ohhell:ohhell@localhost:5434/ohhell"
+    database_url: str = "postgresql+asyncpg://ohhell:ohhell@localhost:5436/ohhell"
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24

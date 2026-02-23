@@ -138,8 +138,10 @@ def register_handlers(sio: socketio.AsyncServer):
 
     @sio.event
     async def start_game(sid, data=None):
+        logger.info(f"start_game event from sid={sid}")
         player_id = manager.get_player_id(sid)
         if not player_id:
+            logger.warning("start_game: no player_id for sid")
             return
 
         result = manager.get_player_engine(player_id)
@@ -150,6 +152,7 @@ def register_handlers(sio: socketio.AsyncServer):
         room_code, engine = result
         try:
             engine.start_game(player_id)
+            logger.info(f"Game {room_code} started. Phase={engine.phase}, players={len(engine.players)}")
         except GameError as e:
             await emit_error(sio, sid, str(e))
             return
@@ -159,6 +162,7 @@ def register_handlers(sio: socketio.AsyncServer):
 
         # Notify first bidder
         current = engine.get_current_player_id()
+        logger.info(f"First bidder: {current}")
         if current:
             await emit_your_turn(sio, engine, current, engine.state.config.turn_timer_seconds)
 
@@ -381,56 +385,60 @@ async def _handle_bot_turns(sio: socketio.AsyncServer, engine: GameEngine):
     while True:
         current_id = engine.get_current_player_id()
         if not current_id:
+            logger.info("_handle_bot_turns: no current player, breaking")
             break
 
         player = engine.state.get_player(current_id)
         if not player or not player.is_bot:
+            logger.info(f"_handle_bot_turns: current player {current_id} is not a bot, breaking")
             break
+
+        logger.info(f"_handle_bot_turns: bot {current_id} turn, phase={engine.phase}")
 
         # Delay to feel natural
         await asyncio.sleep(1.5)
 
         bot = BasicBot()
 
-        if engine.phase == GamePhase.BIDDING:
-            valid_bids = engine.get_valid_bids_for_player(current_id)
-            bid = bot.choose_bid(player, engine.state, valid_bids)
-            try:
+        try:
+            if engine.phase == GamePhase.BIDDING:
+                valid_bids = engine.get_valid_bids_for_player(current_id)
+                logger.info(f"Bot {current_id} valid bids: {valid_bids}")
+                bid = bot.choose_bid(player, engine.state, valid_bids)
+                logger.info(f"Bot {current_id} chose bid: {bid}")
                 engine.place_bid(current_id, bid)
-            except GameError:
-                break
-            await emit_bid_placed(sio, engine, current_id, bid)
+                await emit_bid_placed(sio, engine, current_id, bid)
 
-            if engine.phase == GamePhase.PLAYING:
-                await emit_game_state_to_all(sio, engine)
+                if engine.phase == GamePhase.PLAYING:
+                    await emit_game_state_to_all(sio, engine)
 
-        elif engine.phase == GamePhase.PLAYING:
-            valid_cards = engine.get_valid_cards_for_player(current_id)
-            card = bot.choose_card(player, engine.state, valid_cards)
-            try:
+            elif engine.phase == GamePhase.PLAYING:
+                valid_cards = engine.get_valid_cards_for_player(current_id)
+                card = bot.choose_card(player, engine.state, valid_cards)
                 trick_result = engine.play_card(current_id, card)
-            except GameError:
+
+                await emit_card_played(sio, engine, current_id, card.to_dict())
+
+                if trick_result.trick_complete:
+                    await emit_trick_won(sio, engine, trick_result.winner_id, trick_result.trick)
+
+                    if trick_result.round_over:
+                        scores = engine.state.scores_history[-1]
+                        round_num = engine.state.round_number
+
+                        if engine.phase == GamePhase.GAME_OVER:
+                            await emit_round_scored(sio, engine, scores, round_num)
+                            await emit_game_over(sio, engine)
+                            return
+                        else:
+                            await emit_round_scored(sio, engine, scores, round_num)
+                            await asyncio.sleep(2)
+                            engine.advance_to_next_round()
+                            await emit_game_state_to_all(sio, engine)
+            else:
                 break
-
-            await emit_card_played(sio, engine, current_id, card.to_dict())
-
-            if trick_result.trick_complete:
-                await emit_trick_won(sio, engine, trick_result.winner_id, trick_result.trick)
-
-                if trick_result.round_over:
-                    scores = engine.state.scores_history[-1]
-                    round_num = engine.state.round_number
-
-                    if engine.phase == GamePhase.GAME_OVER:
-                        await emit_round_scored(sio, engine, scores, round_num)
-                        await emit_game_over(sio, engine)
-                        return
-                    else:
-                        await emit_round_scored(sio, engine, scores, round_num)
-                        await asyncio.sleep(2)
-                        engine.advance_to_next_round()
-                        await emit_game_state_to_all(sio, engine)
-        else:
+        except Exception as e:
+            logger.error(f"Bot turn error: {e}", exc_info=True)
             break
 
         # Notify next player

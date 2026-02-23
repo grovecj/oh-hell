@@ -6,8 +6,8 @@ type GameAction =
   | { type: 'SET_STATE'; payload: GameState }
   | { type: 'PLAYER_JOINED'; payload: PlayerInfo }
   | { type: 'PLAYER_LEFT'; payload: string }
-  | { type: 'BID_PLACED'; payload: { player_id: string; bid: number } }
-  | { type: 'CARD_PLAYED'; payload: { player_id: string; card: Card } }
+  | { type: 'BID_PLACED'; payload: { player_id: string; bid: number; current_player_id: string | null; phase: string } }
+  | { type: 'CARD_PLAYED'; payload: { player_id: string; card: Card; current_player_id: string | null } }
   | { type: 'TRICK_WON'; payload: { winner_id: string; trick: TrickCard[] } }
   | { type: 'ROUND_SCORED'; payload: { scores: RoundScore[]; round_number: number } }
   | { type: 'GAME_OVER'; payload: { final_scores: RoundScore[]; winner_id: string } }
@@ -59,26 +59,36 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
         ...state,
         gameState: {
           ...state.gameState,
+          phase: (action.payload.phase as GameState['phase']) || state.gameState.phase,
+          current_player_id: action.payload.current_player_id ?? state.gameState.current_player_id,
           players: state.gameState.players.map(p =>
             p.id === action.payload.player_id ? { ...p, bid: action.payload.bid } : p
           ),
         },
       };
-    case 'CARD_PLAYED':
+    case 'CARD_PLAYED': {
       if (!state.gameState) return state;
+      const playedCard = action.payload.card;
+      const isMe = action.payload.player_id === state.gameState.my_id;
       return {
         ...state,
         gameState: {
           ...state.gameState,
+          current_player_id: action.payload.current_player_id ?? state.gameState.current_player_id,
           current_trick: [
             ...state.gameState.current_trick,
-            { player_id: action.payload.player_id, card: action.payload.card },
+            { player_id: action.payload.player_id, card: playedCard },
           ],
+          hand: isMe
+            ? state.gameState.hand.filter(c => !(c.suit === playedCard.suit && c.rank === playedCard.rank))
+            : state.gameState.hand,
+          valid_cards: [],
           players: state.gameState.players.map(p =>
             p.id === action.payload.player_id ? { ...p, card_count: p.card_count - 1 } : p
           ),
         },
       };
+    }
     case 'TRICK_WON':
       if (!state.gameState) return state;
       return {
@@ -103,6 +113,7 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
         timeRemaining: action.payload.time_remaining,
         gameState: {
           ...state.gameState,
+          current_player_id: state.gameState.my_id,
           valid_cards: action.payload.valid_cards || [],
           valid_bids: action.payload.valid_bids || [],
         },
@@ -164,8 +175,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on('game_state', (data: GameState) => dispatch({ type: 'SET_STATE', payload: data }));
     socket.on('player_joined', (data: { player: PlayerInfo }) => dispatch({ type: 'PLAYER_JOINED', payload: data.player }));
     socket.on('player_left', (data: { player_id: string }) => dispatch({ type: 'PLAYER_LEFT', payload: data.player_id }));
-    socket.on('bid_placed', (data: { player_id: string; bid: number }) => dispatch({ type: 'BID_PLACED', payload: data }));
-    socket.on('card_played', (data: { player_id: string; card: Card }) => dispatch({ type: 'CARD_PLAYED', payload: data }));
+    socket.on('bid_placed', (data: { player_id: string; bid: number; current_player_id: string | null; phase: string }) => dispatch({ type: 'BID_PLACED', payload: data }));
+    socket.on('card_played', (data: { player_id: string; card: Card; current_player_id: string | null }) => dispatch({ type: 'CARD_PLAYED', payload: data }));
     socket.on('trick_won', (data: { winner_id: string; trick: TrickCard[] }) => dispatch({ type: 'TRICK_WON', payload: data }));
     socket.on('round_scored', (data: { scores: RoundScore[]; round_number: number }) => dispatch({ type: 'ROUND_SCORED', payload: data }));
     socket.on('game_over', (data: { final_scores: RoundScore[]; winner_id: string }) => dispatch({ type: 'GAME_OVER', payload: data }));

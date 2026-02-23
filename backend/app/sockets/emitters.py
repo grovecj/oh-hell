@@ -12,6 +12,11 @@ async def emit_game_state(sio: socketio.AsyncServer, engine: GameEngine, player_
     sid = manager.get_sid(player_id)
     if sid:
         view = engine.get_player_view(player_id)
+        import logging
+        logging.getLogger("app.sockets.emitters").info(
+            f"Sending game_state to {player_id}: phase={view['phase']}, hand={view['hand']}, "
+            f"current_player_id={view['current_player_id']}"
+        )
         await sio.emit("game_state", view, to=sid)
 
 
@@ -52,11 +57,20 @@ async def emit_player_left(sio: socketio.AsyncServer, engine: GameEngine, player
 
 
 async def emit_bid_placed(sio: socketio.AsyncServer, engine: GameEngine, player_id: str, bid: int):
-    await emit_to_room(sio, engine, "bid_placed", {"player_id": player_id, "bid": bid})
+    await emit_to_room(sio, engine, "bid_placed", {
+        "player_id": player_id,
+        "bid": bid,
+        "current_player_id": engine.get_current_player_id(),
+        "phase": engine.phase.value,
+    })
 
 
 async def emit_card_played(sio: socketio.AsyncServer, engine: GameEngine, player_id: str, card_dict: dict):
-    await emit_to_room(sio, engine, "card_played", {"player_id": player_id, "card": card_dict})
+    await emit_to_room(sio, engine, "card_played", {
+        "player_id": player_id,
+        "card": card_dict,
+        "current_player_id": engine.get_current_player_id(),
+    })
 
 
 async def emit_trick_won(sio: socketio.AsyncServer, engine: GameEngine, winner_id: str, trick: list[TrickCard]):

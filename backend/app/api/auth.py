@@ -38,6 +38,7 @@ async def create_anonymous(db: AsyncSession = Depends(get_db)):
         is_anonymous=True,
     )
     db.add(user)
+    await db.flush()
     db.add(UserStats(user_id=user_id))
     await db.commit()
 
@@ -112,6 +113,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             is_anonymous=False,
         )
         db.add(user)
+        await db.flush()
         db.add(UserStats(user_id=user.id))
 
     await db.commit()
