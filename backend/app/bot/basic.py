@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import random
-
 from app.bot.strategy import BotStrategy
 from app.game.types import Card, GameState, PlayerState, Rank
 

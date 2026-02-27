@@ -1,4 +1,4 @@
-from app.game.types import Card, Rank, Suit, TrickCard
+from app.game.types import Card, Suit, TrickCard
 
 
 def get_valid_cards(hand: list[Card], lead_suit: Suit | None) -> list[Card]:
@@ -67,7 +67,11 @@ def determine_trick_winner(trick: list[TrickCard], trump_suit: Suit | None) -> s
 
     lead_suit = trick[0].card.suit
 
-    trump_cards = [(tc, tc.card.rank.value_order) for tc in trick if trump_suit and tc.card.suit == trump_suit]
+    trump_cards = [
+        (tc, tc.card.rank.value_order)
+        for tc in trick
+        if trump_suit and tc.card.suit == trump_suit
+    ]
     if trump_cards:
         winner = max(trump_cards, key=lambda x: x[1])
         return winner[0].player_id

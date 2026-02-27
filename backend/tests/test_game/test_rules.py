@@ -2,7 +2,6 @@ from app.game.rules import (
     determine_trick_winner,
     get_valid_bids,
     get_valid_cards,
-    is_valid_bid,
     is_valid_play,
 )
 from app.game.types import Card, Rank, Suit, TrickCard

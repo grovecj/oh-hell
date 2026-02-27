@@ -20,7 +20,11 @@ class GameRoomManager:
         self._disconnect_tasks: dict[str, asyncio.Task] = {}  # player_id → auto-play task
         self._turn_timers: dict[str, asyncio.Task] = {}  # room_code → turn timer task
 
-    def create_game(self, host_id: str, host_name: str, config: GameConfig | None = None, avatar_url: str | None = None) -> GameEngine:
+    def create_game(
+        self, host_id: str, host_name: str,
+        config: GameConfig | None = None,
+        avatar_url: str | None = None,
+    ) -> GameEngine:
         room_code = generate_room_code()
         while room_code in self.games:
             room_code = generate_room_code()
@@ -31,7 +35,10 @@ class GameRoomManager:
         self.player_rooms[host_id] = room_code
         return engine
 
-    def join_game(self, room_code: str, player_id: str, display_name: str, avatar_url: str | None = None) -> GameEngine:
+    def join_game(
+        self, room_code: str, player_id: str,
+        display_name: str, avatar_url: str | None = None,
+    ) -> GameEngine:
         engine = self.games.get(room_code)
         if not engine:
             raise GameError("Game not found")
@@ -98,7 +105,10 @@ class GameRoomManager:
     def get_lobby_rooms(self) -> list[dict]:
         rooms = []
         for code, engine in self.games.items():
-            if engine.state.phase in (GamePhase.LOBBY, GamePhase.BIDDING, GamePhase.PLAYING, GamePhase.SCORING):
+            if engine.state.phase in (
+                GamePhase.LOBBY, GamePhase.BIDDING,
+                GamePhase.PLAYING, GamePhase.SCORING,
+            ):
                 rooms.append({
                     "room_code": code,
                     "host_name": engine.players[0].display_name if engine.players else "Unknown",

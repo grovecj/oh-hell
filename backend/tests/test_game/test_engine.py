@@ -3,7 +3,7 @@ import random
 import pytest
 
 from app.game.engine import GameEngine, GameError
-from app.game.types import Card, GameConfig, GamePhase, Rank, ScoringVariant, Suit
+from app.game.types import GameConfig, GamePhase
 
 
 def make_engine(num_players=3, config=None) -> GameEngine:
@@ -122,7 +122,6 @@ class TestRoundSequence:
     def test_4_players(self):
         engine = make_engine(4)
         seq = engine.state.round_sequence()
-        max_h = 13
         assert max(seq) == 13
         assert len(seq) == 25  # 1..13..1
 
@@ -247,7 +246,7 @@ class TestFullRound:
         engine._rng = random.Random(42)
         engine.start_game("p1")
 
-        for round_num in range(2):
+        for _round_num in range(2):
             # Bid phase
             for _ in range(3):
                 pid = engine.get_current_player_id()
@@ -256,7 +255,7 @@ class TestFullRound:
 
             # Play phase
             hand_size = engine.state.round_state.hand_size
-            for trick in range(hand_size):
+            for _trick in range(hand_size):
                 for _ in range(3):
                     pid = engine.get_current_player_id()
                     valid = engine.get_valid_cards_for_player(pid)

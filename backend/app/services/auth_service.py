@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -13,8 +13,8 @@ def create_token(user_id: str, user_type: str = "anon", name: str = "Anonymous")
         "sub": user_id,
         "type": user_type,
         "name": name,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=settings.jwt_expiration_hours),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(hours=settings.jwt_expiration_hours),
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

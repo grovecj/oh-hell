@@ -219,7 +219,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [socket]);
 
   // Auto-clear timeout notification after 3 seconds
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     if (state.turnTimedOut) {
       clearTimeout(timeoutRef.current);

@@ -16,7 +16,9 @@ def shuffle_deck(deck: list[Card], rng: random.Random | None = None) -> list[Car
     return shuffled
 
 
-def deal(deck: list[Card], num_players: int, cards_per_player: int) -> tuple[list[list[Card]], Card | None]:
+def deal(
+    deck: list[Card], num_players: int, cards_per_player: int,
+) -> tuple[list[list[Card]], Card | None]:
     """Deal cards from the deck.
 
     Returns (hands, trump_card). trump_card is the next card after dealing,

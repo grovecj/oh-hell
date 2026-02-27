@@ -66,7 +66,10 @@ async def emit_bid_placed(sio: socketio.AsyncServer, engine: GameEngine, player_
     })
 
 
-async def emit_card_played(sio: socketio.AsyncServer, engine: GameEngine, player_id: str, card_dict: dict):
+async def emit_card_played(
+    sio: socketio.AsyncServer, engine: GameEngine,
+    player_id: str, card_dict: dict,
+):
     await emit_to_room(sio, engine, "card_played", {
         "player_id": player_id,
         "card": card_dict,
@@ -74,14 +77,20 @@ async def emit_card_played(sio: socketio.AsyncServer, engine: GameEngine, player
     })
 
 
-async def emit_trick_won(sio: socketio.AsyncServer, engine: GameEngine, winner_id: str, trick: list[TrickCard]):
+async def emit_trick_won(
+    sio: socketio.AsyncServer, engine: GameEngine,
+    winner_id: str, trick: list[TrickCard],
+):
     await emit_to_room(sio, engine, "trick_won", {
         "winner_id": winner_id,
         "trick": [{"player_id": tc.player_id, "card": tc.card.to_dict()} for tc in trick],
     })
 
 
-async def emit_round_scored(sio: socketio.AsyncServer, engine: GameEngine, scores: list[RoundScoreEntry], round_number: int):
+async def emit_round_scored(
+    sio: socketio.AsyncServer, engine: GameEngine,
+    scores: list[RoundScoreEntry], round_number: int,
+):
     await emit_to_room(sio, engine, "round_scored", {
         "scores": [
             {
@@ -115,7 +124,10 @@ async def emit_game_over(sio: socketio.AsyncServer, engine: GameEngine):
     })
 
 
-async def emit_your_turn(sio: socketio.AsyncServer, engine: GameEngine, player_id: str, timer: int = 30):
+async def emit_your_turn(
+    sio: socketio.AsyncServer, engine: GameEngine,
+    player_id: str, timer: int = 30,
+):
     """Notify a player it's their turn with valid actions."""
     sid = manager.get_sid(player_id)
     if not sid:

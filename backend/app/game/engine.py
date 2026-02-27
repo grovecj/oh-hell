@@ -52,7 +52,10 @@ class GameEngine:
     def room_code(self) -> str:
         return self.state.room_code
 
-    def add_player(self, player_id: str, display_name: str, is_bot: bool = False, avatar_url: str | None = None) -> PlayerState:
+    def add_player(
+        self, player_id: str, display_name: str,
+        is_bot: bool = False, avatar_url: str | None = None,
+    ) -> PlayerState:
         if self.state.phase != GamePhase.LOBBY:
             raise GameError("Cannot add players after game has started")
         if len(self.state.players) >= self.state.config.max_players:
@@ -125,7 +128,7 @@ class GameEngine:
         hands, trump_card = deal(deck, self.state.player_count, hand_size)
         trump_suit = trump_card.suit if trump_card else None
 
-        for i, p in enumerate(self.state.players):
+        for i, _p in enumerate(self.state.players):
             # Deal by seat order starting left of dealer
             deal_idx = (dealer_seat + 1 + i) % self.state.player_count
             p_at_seat = self.state.get_player_by_seat(deal_idx)
@@ -362,12 +365,26 @@ class GameEngine:
             "trump_suit": rs.trump_suit.value if rs and rs.trump_suit else None,
             "current_trick": current_trick,
             "current_player_id": self.get_current_player_id(),
-            "dealer_id": self.state.get_player_by_seat(rs.dealer_seat).player_id if rs and self.state.get_player_by_seat(rs.dealer_seat) else None,
+            "dealer_id": (
+                self.state.get_player_by_seat(rs.dealer_seat).player_id
+                if rs and self.state.get_player_by_seat(rs.dealer_seat)
+                else None
+            ),
             "round_number": self.state.round_number + 1,  # 1-indexed for display
             "hand_size": rs.hand_size if rs else 0,
             "total_rounds": self.state.total_rounds(),
-            "valid_cards": [c.to_dict() for c in self.get_valid_cards_for_player(player_id)] if self.state.phase == GamePhase.PLAYING and self.get_current_player_id() == player_id else [],
-            "valid_bids": self.get_valid_bids_for_player(player_id) if self.state.phase == GamePhase.BIDDING and self.get_current_player_id() == player_id else [],
+            "valid_cards": (
+                [c.to_dict() for c in self.get_valid_cards_for_player(player_id)]
+                if self.state.phase == GamePhase.PLAYING
+                and self.get_current_player_id() == player_id
+                else []
+            ),
+            "valid_bids": (
+                self.get_valid_bids_for_player(player_id)
+                if self.state.phase == GamePhase.BIDDING
+                and self.get_current_player_id() == player_id
+                else []
+            ),
             "scores_history": scores_history,
             "config": self.state.config.to_dict(),
         }

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import random
-
 from app.bot.strategy import BotStrategy
 from app.game.types import Card, GameState, PlayerState, Rank, Suit
 
@@ -68,7 +66,10 @@ class IntermediateBot(BotStrategy):
                 # Non-trump high cards
                 if card.rank == Rank.ACE:
                     # Ace wins unless trumped; factor in how many trump remain
-                    trump_remaining = self._cards_remaining_in_suit(trump_suit, hand) if trump_suit else 0
+                    trump_remaining = (
+                        self._cards_remaining_in_suit(trump_suit, hand)
+                        if trump_suit else 0
+                    )
                     void_chance = 1.0 - (trump_remaining / 13.0) if trump_remaining > 0 else 1.0
                     expected_wins += 0.6 * void_chance + 0.3
                 elif card.rank == Rank.KING:
@@ -111,7 +112,11 @@ class IntermediateBot(BotStrategy):
     ) -> Card:
         if tricks_needed > 0:
             # Lead with strongest card — prefer guaranteed winners
-            for card in sorted(valid_cards, key=lambda c: self._card_strength(c, trump_suit), reverse=True):
+            for card in sorted(
+                valid_cards,
+                key=lambda c: self._card_strength(c, trump_suit),
+                reverse=True,
+            ):
                 if self._is_highest_remaining(card, player.hand):
                     return card
             return max(valid_cards, key=lambda c: self._card_strength(c, trump_suit))
@@ -128,8 +133,6 @@ class IntermediateBot(BotStrategy):
         rs = state.round_state
         if not rs or not rs.current_trick:
             return valid_cards[0]
-
-        lead_suit = rs.current_trick[0].card.suit
 
         # Evaluate current trick winner
         current_winning_strength = max(

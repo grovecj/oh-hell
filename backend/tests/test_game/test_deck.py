@@ -1,7 +1,7 @@
 import random
 
 from app.game.deck import create_deck, deal, shuffle_deck
-from app.game.types import Card, Rank, Suit
+from app.game.types import Suit
 
 
 def test_create_deck_has_52_cards():

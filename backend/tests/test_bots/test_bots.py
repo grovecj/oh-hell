@@ -20,7 +20,7 @@ def play_full_game_with_bots(bot_class, num_players=4, seed=42):
         engine.add_player(pid, f"Bot {i}", is_bot=True)
         bots[pid] = bot_class()
 
-    engine.start_game(f"bot_0")
+    engine.start_game("bot_0")
 
     max_iterations = 10000
     iterations = 0
@@ -28,7 +28,10 @@ def play_full_game_with_bots(bot_class, num_players=4, seed=42):
     while engine.phase not in (GamePhase.GAME_OVER, GamePhase.FINISHED):
         iterations += 1
         if iterations > max_iterations:
-            pytest.fail(f"Game did not finish after {max_iterations} iterations, phase={engine.phase}")
+            pytest.fail(
+                f"Game did not finish after {max_iterations} "
+                f"iterations, phase={engine.phase}"
+            )
 
         if engine.phase == GamePhase.SCORING:
             engine.advance_to_next_round()

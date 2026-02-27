@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class Suit(str, Enum):
+class Suit(StrEnum):
     HEARTS = "hearts"
     DIAMONDS = "diamonds"
     CLUBS = "clubs"
     SPADES = "spades"
 
 
-class Rank(str, Enum):
+class Rank(StrEnum):
     TWO = "2"
     THREE = "3"
     FOUR = "4"
@@ -31,7 +31,7 @@ class Rank(str, Enum):
         return list(Rank).index(self)
 
 
-class GamePhase(str, Enum):
+class GamePhase(StrEnum):
     LOBBY = "lobby"
     DEALING = "dealing"
     BIDDING = "bidding"
@@ -41,7 +41,7 @@ class GamePhase(str, Enum):
     FINISHED = "finished"
 
 
-class ScoringVariant(str, Enum):
+class ScoringVariant(StrEnum):
     STANDARD = "standard"
     PROGRESSIVE = "progressive"
     BASIC = "basic"

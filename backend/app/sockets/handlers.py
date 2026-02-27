@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
 
 import socketio
 from sqlalchemy import select
 
-from app.game.engine import GameError
+from app.database import async_session
+from app.game.engine import GameEngine, GameError
 from app.game.types import Card, GameConfig, GamePhase, Rank, ScoringVariant, Suit
+from app.models.user import User
+from app.services.auth_service import decode_token
 from app.sockets.emitters import (
     emit_bid_placed,
     emit_card_played,
@@ -24,9 +28,6 @@ from app.sockets.emitters import (
     emit_your_turn,
 )
 from app.sockets.manager import manager
-from app.services.auth_service import decode_token
-from app.database import async_session
-from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def register_handlers(sio: socketio.AsyncServer):
             display_name = payload.get("name", "Anonymous")
         except Exception as e:
             logger.warning(f"Connection rejected: invalid token from {sid}: {e}")
-            raise socketio.exceptions.ConnectionRefusedError("Invalid token")
+            raise socketio.exceptions.ConnectionRefusedError("Invalid token") from e
 
         # Look up avatar_url from database
         avatar_url = None
@@ -78,7 +79,7 @@ def register_handlers(sio: socketio.AsyncServer):
 
     @sio.event
     async def disconnect(sid):
-        session = await sio.get_session(sid)
+        await sio.get_session(sid)
         player_id = manager.get_player_id(sid)
         if not player_id:
             return
@@ -97,7 +98,11 @@ def register_handlers(sio: socketio.AsyncServer):
                 for p in engine.players:
                     other_sid = manager.get_sid(p.player_id)
                     if other_sid:
-                        await sio.emit("player_disconnected", {"player_id": player_id}, to=other_sid)
+                        await sio.emit(
+                            "player_disconnected",
+                            {"player_id": player_id},
+                            to=other_sid,
+                        )
             else:
                 manager.leave_game(player_id)
                 await emit_player_left(sio, engine, player_id)
@@ -186,7 +191,10 @@ def register_handlers(sio: socketio.AsyncServer):
         room_code, engine = result
         try:
             engine.start_game(player_id)
-            logger.info(f"Game {room_code} started. Phase={engine.phase}, players={len(engine.players)}")
+            logger.info(
+                f"Game {room_code} started. "
+                f"Phase={engine.phase}, players={len(engine.players)}"
+            )
         except GameError as e:
             await emit_error(sio, sid, str(e))
             return
@@ -312,7 +320,7 @@ def register_handlers(sio: socketio.AsyncServer):
             await emit_error(sio, sid, "Only the host can add bots")
             return
 
-        difficulty = (data or {}).get("difficulty", "basic")
+        (data or {}).get("difficulty", "basic")
         bot_num = sum(1 for p in engine.players if p.is_bot) + 1
         bot_id = f"bot_{room_code}_{bot_num}"
         bot_name = f"Bot {bot_num}"
@@ -389,7 +397,9 @@ def register_handlers(sio: socketio.AsyncServer):
         if "hook_rule" in cfg:
             engine.state.config.hook_rule = bool(cfg["hook_rule"])
         if "turn_timer_seconds" in cfg:
-            engine.state.config.turn_timer_seconds = max(10, min(120, int(cfg["turn_timer_seconds"])))
+            engine.state.config.turn_timer_seconds = max(
+                10, min(120, int(cfg["turn_timer_seconds"]))
+            )
         if "max_players" in cfg:
             engine.state.config.max_players = max(3, min(7, int(cfg["max_players"])))
         if "max_hand_size" in cfg:
@@ -449,7 +459,9 @@ def _cancel_turn_timer(room_code: str):
     manager.cancel_turn_timer(room_code)
 
 
-async def _handle_bot_turns(sio: socketio.AsyncServer, engine: GameEngine):
+async def _handle_bot_turns(
+    sio: socketio.AsyncServer, engine: GameEngine,
+):
     """Process bot turns with delays."""
     from app.bot.basic import BasicBot
 
@@ -596,7 +608,5 @@ async def _notify_lobby_update(sio: socketio.AsyncServer):
     """Notify lobby namespace clients of room list changes."""
     rooms = manager.get_lobby_rooms()
     # Emit to the /lobby namespace
-    try:
+    with contextlib.suppress(Exception):
         await sio.emit("rooms_updated", {"rooms": rooms}, namespace="/lobby")
-    except Exception:
-        pass
