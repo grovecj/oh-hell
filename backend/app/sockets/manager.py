@@ -18,6 +18,7 @@ class GameRoomManager:
         self.sid_to_player: dict[str, str] = {}  # socket sid → player_id
         self.player_to_sid: dict[str, str] = {}  # player_id → socket sid
         self._disconnect_tasks: dict[str, asyncio.Task] = {}  # player_id → auto-play task
+        self._turn_timers: dict[str, asyncio.Task] = {}  # room_code → turn timer task
 
     def create_game(self, host_id: str, host_name: str, config: GameConfig | None = None, avatar_url: str | None = None) -> GameEngine:
         room_code = generate_room_code()
@@ -97,13 +98,14 @@ class GameRoomManager:
     def get_lobby_rooms(self) -> list[dict]:
         rooms = []
         for code, engine in self.games.items():
-            if engine.state.phase == GamePhase.LOBBY:
+            if engine.state.phase in (GamePhase.LOBBY, GamePhase.BIDDING, GamePhase.PLAYING, GamePhase.SCORING):
                 rooms.append({
                     "room_code": code,
                     "host_name": engine.players[0].display_name if engine.players else "Unknown",
                     "player_count": len(engine.players),
                     "max_players": engine.state.config.max_players,
                     "scoring_variant": engine.state.config.scoring_variant.value,
+                    "status": "waiting" if engine.state.phase == GamePhase.LOBBY else "in_progress",
                 })
         return rooms
 
@@ -121,7 +123,24 @@ class GameRoomManager:
         if task:
             task.cancel()
 
+    def start_turn_timer(self, room_code: str, callback, timeout: float):
+        """Cancel any existing turn timer for the room and start a new one."""
+        self.cancel_turn_timer(room_code)
+
+        async def _timer():
+            await asyncio.sleep(timeout)
+            await callback(room_code)
+
+        self._turn_timers[room_code] = asyncio.create_task(_timer())
+
+    def cancel_turn_timer(self, room_code: str):
+        """Cancel the turn timer for a room if one exists."""
+        task = self._turn_timers.pop(room_code, None)
+        if task:
+            task.cancel()
+
     def cleanup_game(self, room_code: str):
+        self.cancel_turn_timer(room_code)
         engine = self.games.pop(room_code, None)
         if engine:
             for p in engine.players:

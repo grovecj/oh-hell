@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useReducer, useContext, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useReducer, useContext, useRef, type ReactNode } from 'react';
 import { SocketContext } from './SocketContext';
 import type { Card, GameState, PlayerInfo, RoundScore, TrickCard } from '@/types/game';
 
@@ -12,7 +12,10 @@ type GameAction =
   | { type: 'ROUND_SCORED'; payload: { scores: RoundScore[]; round_number: number } }
   | { type: 'GAME_OVER'; payload: { final_scores: RoundScore[]; winner_id: string } }
   | { type: 'YOUR_TURN'; payload: { valid_cards?: Card[]; valid_bids?: number[]; time_remaining: number } }
+  | { type: 'CLEAR_TRICK' }
   | { type: 'CARDS_DEALT'; payload: { hand: Card[]; trump_card: Card | null; trump_suit: string | null; hand_size: number; round_number: number } }
+  | { type: 'TURN_TIMED_OUT'; payload: { player_id: string; display_name: string } }
+  | { type: 'CLEAR_TIMEOUT' }
   | { type: 'CLEAR' };
 
 interface GameContextState {
@@ -21,6 +24,7 @@ interface GameContextState {
   lastRoundScores: { scores: RoundScore[]; round_number: number } | null;
   gameOverData: { final_scores: RoundScore[]; winner_id: string } | null;
   timeRemaining: number;
+  turnTimedOut: { player_id: string; display_name: string } | null;
 }
 
 const initialState: GameContextState = {
@@ -29,6 +33,7 @@ const initialState: GameContextState = {
   lastRoundScores: null,
   gameOverData: null,
   timeRemaining: 0,
+  turnTimedOut: null,
 };
 
 function gameReducer(state: GameContextState, action: GameAction): GameContextState {
@@ -102,6 +107,8 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
           ),
         },
       };
+    case 'CLEAR_TRICK':
+      return { ...state, lastTrick: null };
     case 'ROUND_SCORED':
       return { ...state, lastRoundScores: action.payload };
     case 'GAME_OVER':
@@ -134,6 +141,10 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
           current_trick: [],
         },
       };
+    case 'TURN_TIMED_OUT':
+      return { ...state, turnTimedOut: action.payload };
+    case 'CLEAR_TIMEOUT':
+      return { ...state, turnTimedOut: null };
     case 'CLEAR':
       return initialState;
     default:
@@ -180,11 +191,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on('player_left', (data: { player_id: string }) => dispatch({ type: 'PLAYER_LEFT', payload: data.player_id }));
     socket.on('bid_placed', (data: { player_id: string; bid: number; current_player_id: string | null; phase: string }) => dispatch({ type: 'BID_PLACED', payload: data }));
     socket.on('card_played', (data: { player_id: string; card: Card; current_player_id: string | null }) => dispatch({ type: 'CARD_PLAYED', payload: data }));
-    socket.on('trick_won', (data: { winner_id: string; trick: TrickCard[] }) => dispatch({ type: 'TRICK_WON', payload: data }));
+    socket.on('trick_won', (data: { winner_id: string; trick: TrickCard[] }) => {
+      dispatch({ type: 'TRICK_WON', payload: data });
+      setTimeout(() => dispatch({ type: 'CLEAR_TRICK' }), 1200);
+    });
     socket.on('round_scored', (data: { scores: RoundScore[]; round_number: number }) => dispatch({ type: 'ROUND_SCORED', payload: data }));
     socket.on('game_over', (data: { final_scores: RoundScore[]; winner_id: string }) => dispatch({ type: 'GAME_OVER', payload: data }));
     socket.on('your_turn', (data: { valid_cards?: Card[]; valid_bids?: number[]; time_remaining: number }) => dispatch({ type: 'YOUR_TURN', payload: data }));
     socket.on('cards_dealt', (data: { hand: Card[]; trump_card: Card | null; trump_suit: string | null; hand_size: number; round_number: number }) => dispatch({ type: 'CARDS_DEALT', payload: data }));
+    socket.on('turn_timed_out', (data: { player_id: string; display_name: string }) => {
+      dispatch({ type: 'TURN_TIMED_OUT', payload: data });
+    });
 
     return () => {
       socket.off('game_state');
@@ -197,8 +214,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off('game_over');
       socket.off('your_turn');
       socket.off('cards_dealt');
+      socket.off('turn_timed_out');
     };
   }, [socket]);
+
+  // Auto-clear timeout notification after 3 seconds
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (state.turnTimedOut) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => dispatch({ type: 'CLEAR_TIMEOUT' }), 3000);
+    }
+    return () => clearTimeout(timeoutRef.current);
+  }, [state.turnTimedOut]);
 
   const joinGame = useCallback((roomCode: string) => socket?.emit('join_game', { room_code: roomCode }), [socket]);
   const leaveGame = useCallback(() => { socket?.emit('leave_game'); dispatch({ type: 'CLEAR' }); }, [socket]);

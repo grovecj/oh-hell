@@ -135,5 +135,15 @@ async def emit_your_turn(sio: socketio.AsyncServer, engine: GameEngine, player_i
         }, to=sid)
 
 
+async def emit_turn_timed_out(sio: socketio.AsyncServer, engine: GameEngine, player_id: str):
+    """Notify all players that a player's turn timed out."""
+    player = engine.state.get_player(player_id)
+    display_name = player.display_name if player else "Unknown"
+    await emit_to_room(sio, engine, "turn_timed_out", {
+        "player_id": player_id,
+        "display_name": display_name,
+    })
+
+
 async def emit_error(sio: socketio.AsyncServer, sid: str, message: str):
     await sio.emit("error", {"message": message}, to=sid)
