@@ -113,6 +113,10 @@ class GameConfig:
     max_players: int = 7
     max_hand_size: int | None = None
 
+    def __post_init__(self) -> None:
+        if self.max_hand_size is not None and self.max_hand_size < 1:
+            self.max_hand_size = 1
+
     def to_dict(self) -> dict:
         return {
             "scoring_variant": self.scoring_variant.value,

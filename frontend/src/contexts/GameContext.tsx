@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useReducer, useContext, useRef, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useReducer, useContext, type ReactNode } from 'react';
 import { SocketContext } from './SocketContext';
 import type { Card, GameState, PlayerInfo, RoundScore, TrickCard } from '@/types/game';
 
@@ -219,13 +219,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [socket]);
 
   // Auto-clear timeout notification after 3 seconds
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (state.turnTimedOut) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => dispatch({ type: 'CLEAR_TIMEOUT' }), 3000);
-    }
-    return () => clearTimeout(timeoutRef.current);
+    if (!state.turnTimedOut) return;
+    const id = setTimeout(() => dispatch({ type: 'CLEAR_TIMEOUT' }), 3000);
+    return () => clearTimeout(id);
   }, [state.turnTimedOut]);
 
   const joinGame = useCallback((roomCode: string) => socket?.emit('join_game', { room_code: roomCode }), [socket]);

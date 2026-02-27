@@ -159,12 +159,16 @@ def register_handlers(sio: socketio.AsyncServer):
         if data and "config" in data:
             cfg = data["config"]
             raw_mhs = cfg.get("max_hand_size")
+            try:
+                mhs = max(1, min(13, int(raw_mhs))) if raw_mhs is not None else None
+            except (TypeError, ValueError):
+                mhs = None
             config = GameConfig(
                 scoring_variant=ScoringVariant(cfg.get("scoring_variant", "standard")),
                 hook_rule=cfg.get("hook_rule", True),
                 turn_timer_seconds=cfg.get("turn_timer_seconds", 30),
                 max_players=min(max(cfg.get("max_players", 7), 3), 7),
-                max_hand_size=max(1, min(13, int(raw_mhs))) if raw_mhs is not None else None,
+                max_hand_size=mhs,
             )
 
         engine = manager.create_game(player_id, display_name, config, avatar_url=avatar_url)
@@ -404,9 +408,10 @@ def register_handlers(sio: socketio.AsyncServer):
             engine.state.config.max_players = max(3, min(7, int(cfg["max_players"])))
         if "max_hand_size" in cfg:
             val = cfg["max_hand_size"]
-            engine.state.config.max_hand_size = (
-                max(1, min(13, int(val))) if val is not None else None
-            )
+            with contextlib.suppress(TypeError, ValueError):
+                engine.state.config.max_hand_size = (
+                    max(1, min(13, int(val))) if val is not None else None
+                )
 
         await emit_game_state_to_all(sio, engine)
 
@@ -536,6 +541,7 @@ async def _handle_bot_turns(
 
 async def _auto_play(sio: socketio.AsyncServer, room_code: str):
     """Auto-play for a timed-out player: bid 0, play first valid card. Handles full game flow."""
+    _cancel_turn_timer(room_code)
     engine = manager.get_engine(room_code)
     if not engine:
         return

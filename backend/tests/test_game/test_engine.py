@@ -131,6 +131,29 @@ class TestRoundSequence:
         seq = engine.state.round_sequence()
         assert max(seq) == max_h
 
+    def test_max_hand_size_caps_sequence(self):
+        engine = make_engine(3, config=GameConfig(max_hand_size=3))
+        seq = engine.state.round_sequence()
+        assert seq == [1, 2, 3, 2, 1]
+        assert len(seq) == 5
+
+    def test_max_hand_size_1(self):
+        engine = make_engine(4, config=GameConfig(max_hand_size=1))
+        seq = engine.state.round_sequence()
+        assert seq == [1]
+
+    def test_max_hand_size_above_natural_limit(self):
+        """max_hand_size > 52//players should have no effect."""
+        engine = make_engine(4, config=GameConfig(max_hand_size=50))
+        seq = engine.state.round_sequence()
+        assert max(seq) == 13
+        assert len(seq) == 25
+
+    def test_max_hand_size_none_is_full(self):
+        engine = make_engine(4, config=GameConfig(max_hand_size=None))
+        seq = engine.state.round_sequence()
+        assert max(seq) == 13
+
 
 class TestBidding:
     def test_bid_order_starts_left_of_dealer(self):
