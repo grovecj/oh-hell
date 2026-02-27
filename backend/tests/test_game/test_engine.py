@@ -3,7 +3,7 @@ import random
 import pytest
 
 from app.game.engine import GameEngine, GameError
-from app.game.types import Card, GameConfig, GamePhase, Rank, ScoringVariant, Suit
+from app.game.types import GameConfig, GamePhase
 
 
 def make_engine(num_players=3, config=None) -> GameEngine:
@@ -122,7 +122,6 @@ class TestRoundSequence:
     def test_4_players(self):
         engine = make_engine(4)
         seq = engine.state.round_sequence()
-        max_h = 13
         assert max(seq) == 13
         assert len(seq) == 25  # 1..13..1
 
@@ -131,6 +130,29 @@ class TestRoundSequence:
         max_h = 52 // 7  # 7
         seq = engine.state.round_sequence()
         assert max(seq) == max_h
+
+    def test_max_hand_size_caps_sequence(self):
+        engine = make_engine(3, config=GameConfig(max_hand_size=3))
+        seq = engine.state.round_sequence()
+        assert seq == [1, 2, 3, 2, 1]
+        assert len(seq) == 5
+
+    def test_max_hand_size_1(self):
+        engine = make_engine(4, config=GameConfig(max_hand_size=1))
+        seq = engine.state.round_sequence()
+        assert seq == [1]
+
+    def test_max_hand_size_above_natural_limit(self):
+        """max_hand_size > 52//players should have no effect."""
+        engine = make_engine(4, config=GameConfig(max_hand_size=50))
+        seq = engine.state.round_sequence()
+        assert max(seq) == 13
+        assert len(seq) == 25
+
+    def test_max_hand_size_none_is_full(self):
+        engine = make_engine(4, config=GameConfig(max_hand_size=None))
+        seq = engine.state.round_sequence()
+        assert max(seq) == 13
 
 
 class TestBidding:
@@ -247,7 +269,7 @@ class TestFullRound:
         engine._rng = random.Random(42)
         engine.start_game("p1")
 
-        for round_num in range(2):
+        for _round_num in range(2):
             # Bid phase
             for _ in range(3):
                 pid = engine.get_current_player_id()
@@ -256,7 +278,7 @@ class TestFullRound:
 
             # Play phase
             hand_size = engine.state.round_state.hand_size
-            for trick in range(hand_size):
+            for _trick in range(hand_size):
                 for _ in range(3):
                     pid = engine.get_current_player_id()
                     valid = engine.get_valid_cards_for_player(pid)

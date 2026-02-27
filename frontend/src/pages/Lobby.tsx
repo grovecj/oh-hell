@@ -11,6 +11,7 @@ interface RoomInfo {
   player_count: number;
   max_players: number;
   scoring_variant: string;
+  status: 'waiting' | 'in_progress';
 }
 
 export default function Lobby() {
@@ -104,10 +105,10 @@ export default function Lobby() {
 
         {/* Room list */}
         <div>
-          <h2 className="mb-4 text-xl font-semibold">Open Games</h2>
+          <h2 className="mb-4 text-xl font-semibold">Games</h2>
           {rooms.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-12 text-center">
-              <p className="text-lg text-muted-foreground mb-2">No open games right now</p>
+              <p className="text-lg text-muted-foreground mb-2">No games right now</p>
               <p className="text-sm text-muted-foreground">Create one to get started!</p>
             </div>
           ) : (
@@ -122,6 +123,9 @@ export default function Lobby() {
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-bold tracking-wider">{room.room_code}</span>
                       <span className="text-sm text-muted-foreground">by {room.host_name}</span>
+                      {room.status === 'in_progress' && (
+                        <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-400">In Progress</span>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground capitalize">{room.scoring_variant} scoring</span>
                   </div>
@@ -130,7 +134,7 @@ export default function Lobby() {
                       {room.player_count}/{room.max_players} players
                     </span>
                     <span className="rounded-lg bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
-                      Join
+                      {room.status === 'waiting' ? 'Join' : 'Watch'}
                     </span>
                   </div>
                 </div>

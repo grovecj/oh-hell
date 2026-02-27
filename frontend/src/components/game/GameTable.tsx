@@ -1,4 +1,5 @@
 import { useGame } from '@/hooks/useGame';
+import { AnimatePresence, motion } from 'framer-motion';
 import Hand from './Hand';
 import TrickArea from './TrickArea';
 import BidSelector from './BidSelector';
@@ -52,6 +53,7 @@ const SEAT_POSITIONS: Record<number, { x: string; y: string }[]> = {
 export default function GameTable() {
   const {
     gameState, lastTrick, lastRoundScores, gameOverData,
+    timeRemaining, turnTimedOut,
     placeBid, playCard,
   } = useGame();
 
@@ -166,7 +168,21 @@ export default function GameTable() {
       )}
 
       {/* Turn timer */}
-      <TurnTimer timeRemaining={30} isMyTurn={isMyTurn} />
+      <TurnTimer timeRemaining={timeRemaining} isMyTurn={isMyTurn} />
+
+      {/* Turn timed out notification */}
+      <AnimatePresence>
+        {turnTimedOut && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-yellow-500/90 text-black px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
+          >
+            {turnTimedOut.display_name} ran out of time
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Round summary */}
       {lastRoundScores && (

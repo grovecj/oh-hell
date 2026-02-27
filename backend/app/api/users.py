@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.user import User
 from app.models.stats import UserStats
+from app.models.user import User
 from app.services.auth_service import decode_token
 
 router = APIRouter(tags=["users"])
@@ -28,7 +28,7 @@ async def get_current_user_id(authorization: str = Header(None)) -> str | None:
 @router.get("/me")
 async def get_profile(
     user_id: str | None = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
 ):
     if not user_id:
         return {"error": "Not authenticated"}
@@ -66,7 +66,7 @@ async def get_profile(
 
 
 @router.get("/leaderboard")
-async def get_leaderboard(db: AsyncSession = Depends(get_db)):
+async def get_leaderboard(db: AsyncSession = Depends(get_db)):  # noqa: B008
     result = await db.execute(
         select(User, UserStats)
         .join(UserStats, User.id == UserStats.user_id)
@@ -83,8 +83,14 @@ async def get_leaderboard(db: AsyncSession = Depends(get_db)):
             "avatar_url": user.avatar_url,
             "games_played": stats.games_played,
             "games_won": stats.games_won,
-            "win_rate": round(stats.games_won / stats.games_played * 100, 1) if stats.games_played > 0 else 0,
-            "bid_accuracy": round(stats.exact_bids / stats.total_bids * 100, 1) if stats.total_bids > 0 else 0,
+            "win_rate": (
+                round(stats.games_won / stats.games_played * 100, 1)
+                if stats.games_played > 0 else 0
+            ),
+            "bid_accuracy": (
+                round(stats.exact_bids / stats.total_bids * 100, 1)
+                if stats.total_bids > 0 else 0
+            ),
             "best_score": stats.best_score,
             "best_streak": stats.best_streak,
         }

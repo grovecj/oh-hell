@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
 
 import socketio
 from sqlalchemy import select
 
-from app.game.engine import GameError
+from app.database import async_session
+from app.game.engine import GameEngine, GameError
 from app.game.types import Card, GameConfig, GamePhase, Rank, ScoringVariant, Suit
+from app.models.user import User
+from app.services.auth_service import decode_token
 from app.sockets.emitters import (
     emit_bid_placed,
     emit_card_played,
@@ -20,12 +24,10 @@ from app.sockets.emitters import (
     emit_player_left,
     emit_round_scored,
     emit_trick_won,
+    emit_turn_timed_out,
     emit_your_turn,
 )
 from app.sockets.manager import manager
-from app.services.auth_service import decode_token
-from app.database import async_session
-from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ def register_handlers(sio: socketio.AsyncServer):
             display_name = payload.get("name", "Anonymous")
         except Exception as e:
             logger.warning(f"Connection rejected: invalid token from {sid}: {e}")
-            raise socketio.exceptions.ConnectionRefusedError("Invalid token")
+            raise socketio.exceptions.ConnectionRefusedError("Invalid token") from e
 
         # Look up avatar_url from database
         avatar_url = None
@@ -77,7 +79,7 @@ def register_handlers(sio: socketio.AsyncServer):
 
     @sio.event
     async def disconnect(sid):
-        session = await sio.get_session(sid)
+        await sio.get_session(sid)
         player_id = manager.get_player_id(sid)
         if not player_id:
             return
@@ -90,13 +92,17 @@ def register_handlers(sio: socketio.AsyncServer):
                 # Start auto-play timer for disconnected player
                 manager.start_disconnect_timer(
                     player_id,
-                    lambda pid: _auto_play(sio, pid),
+                    lambda pid: _auto_play(sio, room_code),
                     timeout=60.0,
                 )
                 for p in engine.players:
                     other_sid = manager.get_sid(p.player_id)
                     if other_sid:
-                        await sio.emit("player_disconnected", {"player_id": player_id}, to=other_sid)
+                        await sio.emit(
+                            "player_disconnected",
+                            {"player_id": player_id},
+                            to=other_sid,
+                        )
             else:
                 manager.leave_game(player_id)
                 await emit_player_left(sio, engine, player_id)
@@ -152,11 +158,17 @@ def register_handlers(sio: socketio.AsyncServer):
         config = None
         if data and "config" in data:
             cfg = data["config"]
+            raw_mhs = cfg.get("max_hand_size")
+            try:
+                mhs = max(1, min(13, int(raw_mhs))) if raw_mhs is not None else None
+            except (TypeError, ValueError):
+                mhs = None
             config = GameConfig(
                 scoring_variant=ScoringVariant(cfg.get("scoring_variant", "standard")),
                 hook_rule=cfg.get("hook_rule", True),
                 turn_timer_seconds=cfg.get("turn_timer_seconds", 30),
                 max_players=min(max(cfg.get("max_players", 7), 3), 7),
+                max_hand_size=mhs,
             )
 
         engine = manager.create_game(player_id, display_name, config, avatar_url=avatar_url)
@@ -183,7 +195,10 @@ def register_handlers(sio: socketio.AsyncServer):
         room_code, engine = result
         try:
             engine.start_game(player_id)
-            logger.info(f"Game {room_code} started. Phase={engine.phase}, players={len(engine.players)}")
+            logger.info(
+                f"Game {room_code} started. "
+                f"Phase={engine.phase}, players={len(engine.players)}"
+            )
         except GameError as e:
             await emit_error(sio, sid, str(e))
             return
@@ -199,6 +214,9 @@ def register_handlers(sio: socketio.AsyncServer):
 
         # Handle bot turns
         await _handle_bot_turns(sio, engine)
+
+        # Start turn timer for the current human player
+        _start_turn_timer(sio, engine, room_code)
 
     @sio.event
     async def place_bid(sid, data):
@@ -231,8 +249,10 @@ def register_handlers(sio: socketio.AsyncServer):
         # Notify next player
         current = engine.get_current_player_id()
         if current:
+            _cancel_turn_timer(room_code)
             await emit_your_turn(sio, engine, current, engine.state.config.turn_timer_seconds)
             await _handle_bot_turns(sio, engine)
+            _start_turn_timer(sio, engine, room_code)
 
     @sio.event
     async def play_card(sid, data):
@@ -262,12 +282,14 @@ def register_handlers(sio: socketio.AsyncServer):
 
         if trick_result.trick_complete:
             await emit_trick_won(sio, engine, trick_result.winner_id, trick_result.trick)
+            await asyncio.sleep(1.5)  # Brief pause to show winning trick before clearing
 
             if trick_result.round_over:
                 scores = engine.state.scores_history[-1]
                 round_num = engine.state.round_number
 
                 if engine.phase == GamePhase.GAME_OVER:
+                    _cancel_turn_timer(room_code)
                     await emit_round_scored(sio, engine, scores, round_num)
                     await emit_game_over(sio, engine)
                     return
@@ -279,10 +301,12 @@ def register_handlers(sio: socketio.AsyncServer):
                     await emit_game_state_to_all(sio, engine)
 
         # Notify next player
+        _cancel_turn_timer(room_code)
         current = engine.get_current_player_id()
         if current:
             await emit_your_turn(sio, engine, current, engine.state.config.turn_timer_seconds)
             await _handle_bot_turns(sio, engine)
+            _start_turn_timer(sio, engine, room_code)
 
     @sio.event
     async def add_bot(sid, data=None):
@@ -300,7 +324,7 @@ def register_handlers(sio: socketio.AsyncServer):
             await emit_error(sio, sid, "Only the host can add bots")
             return
 
-        difficulty = (data or {}).get("difficulty", "basic")
+        (data or {}).get("difficulty", "basic")
         bot_num = sum(1 for p in engine.players if p.is_bot) + 1
         bot_id = f"bot_{room_code}_{bot_num}"
         bot_name = f"Bot {bot_num}"
@@ -377,9 +401,17 @@ def register_handlers(sio: socketio.AsyncServer):
         if "hook_rule" in cfg:
             engine.state.config.hook_rule = bool(cfg["hook_rule"])
         if "turn_timer_seconds" in cfg:
-            engine.state.config.turn_timer_seconds = max(10, min(120, int(cfg["turn_timer_seconds"])))
+            engine.state.config.turn_timer_seconds = max(
+                10, min(120, int(cfg["turn_timer_seconds"]))
+            )
         if "max_players" in cfg:
             engine.state.config.max_players = max(3, min(7, int(cfg["max_players"])))
+        if "max_hand_size" in cfg:
+            val = cfg["max_hand_size"]
+            with contextlib.suppress(TypeError, ValueError):
+                engine.state.config.max_hand_size = (
+                    max(1, min(13, int(val))) if val is not None else None
+                )
 
         await emit_game_state_to_all(sio, engine)
 
@@ -409,7 +441,32 @@ def register_handlers(sio: socketio.AsyncServer):
                 }, to=p_sid)
 
 
-async def _handle_bot_turns(sio: socketio.AsyncServer, engine: GameEngine):
+def _start_turn_timer(sio: socketio.AsyncServer, engine: GameEngine, room_code: str):
+    """Start a server-side turn timer for the current human player."""
+    current_id = engine.get_current_player_id()
+    if not current_id:
+        return
+
+    player = engine.state.get_player(current_id)
+    if not player or player.is_bot:
+        return
+
+    timeout = engine.state.config.turn_timer_seconds
+
+    async def _on_timeout(rc: str):
+        await _auto_play(sio, rc)
+
+    manager.start_turn_timer(room_code, _on_timeout, float(timeout))
+
+
+def _cancel_turn_timer(room_code: str):
+    """Cancel the turn timer for a room."""
+    manager.cancel_turn_timer(room_code)
+
+
+async def _handle_bot_turns(
+    sio: socketio.AsyncServer, engine: GameEngine,
+):
     """Process bot turns with delays."""
     from app.bot.basic import BasicBot
 
@@ -475,49 +532,87 @@ async def _handle_bot_turns(sio: socketio.AsyncServer, engine: GameEngine):
         # Notify next player
         next_id = engine.get_current_player_id()
         if next_id:
-            await emit_your_turn(sio, engine, next_id, engine.state.config.turn_timer_seconds)
+            next_player = engine.state.get_player(next_id)
+            if next_player and not next_player.is_bot:
+                room_code = engine.room_code
+                await emit_your_turn(sio, engine, next_id, engine.state.config.turn_timer_seconds)
+                _start_turn_timer(sio, engine, room_code)
 
 
-async def _auto_play(sio: socketio.AsyncServer, player_id: str):
-    """Auto-play for disconnected player: bid 0, play random valid card."""
-    result = manager.get_player_engine(player_id)
-    if not result:
+async def _auto_play(sio: socketio.AsyncServer, room_code: str):
+    """Auto-play for a timed-out player: bid 0, play first valid card. Handles full game flow."""
+    _cancel_turn_timer(room_code)
+    engine = manager.get_engine(room_code)
+    if not engine:
         return
 
-    room_code, engine = result
-
-    if engine.get_current_player_id() != player_id:
+    player_id = engine.get_current_player_id()
+    if not player_id:
         return
 
-    if engine.phase == GamePhase.BIDDING:
-        valid_bids = engine.get_valid_bids_for_player(player_id)
-        bid = 0 if 0 in valid_bids else valid_bids[0]
-        try:
+    player = engine.state.get_player(player_id)
+    if not player:
+        return
+
+    # Notify everyone that this player timed out
+    await emit_turn_timed_out(sio, engine, player_id)
+
+    try:
+        if engine.phase == GamePhase.BIDDING:
+            valid_bids = engine.get_valid_bids_for_player(player_id)
+            bid = 0 if 0 in valid_bids else valid_bids[0]
             engine.place_bid(player_id, bid)
             await emit_bid_placed(sio, engine, player_id, bid)
             if engine.phase == GamePhase.PLAYING:
                 await emit_game_state_to_all(sio, engine)
-        except GameError:
-            pass
 
-    elif engine.phase == GamePhase.PLAYING:
-        valid_cards = engine.get_valid_cards_for_player(player_id)
-        if valid_cards:
+        elif engine.phase == GamePhase.PLAYING:
+            valid_cards = engine.get_valid_cards_for_player(player_id)
+            if not valid_cards:
+                return
             card = valid_cards[0]
-            try:
-                trick_result = engine.play_card(player_id, card)
-                await emit_card_played(sio, engine, player_id, card.to_dict())
-                if trick_result.trick_complete:
-                    await emit_trick_won(sio, engine, trick_result.winner_id, trick_result.trick)
-            except GameError:
-                pass
+            trick_result = engine.play_card(player_id, card)
+            await emit_card_played(sio, engine, player_id, card.to_dict())
+
+            if trick_result.trick_complete:
+                await emit_trick_won(sio, engine, trick_result.winner_id, trick_result.trick)
+                await asyncio.sleep(1.5)
+
+                if trick_result.round_over:
+                    scores = engine.state.scores_history[-1]
+                    round_num = engine.state.round_number
+
+                    if engine.phase == GamePhase.GAME_OVER:
+                        await emit_round_scored(sio, engine, scores, round_num)
+                        await emit_game_over(sio, engine)
+                        return
+                    else:
+                        await emit_round_scored(sio, engine, scores, round_num)
+                        await asyncio.sleep(2)
+                        engine.advance_to_next_round()
+                        await emit_game_state_to_all(sio, engine)
+        else:
+            return
+    except GameError as e:
+        logger.error(f"Auto-play error for {player_id}: {e}")
+        return
+
+    # Notify next player and continue game flow
+    next_id = engine.get_current_player_id()
+    if next_id:
+        await emit_your_turn(sio, engine, next_id, engine.state.config.turn_timer_seconds)
+        await _handle_bot_turns(sio, engine)
+        # After bots are done, start timer for the next human player
+        final_id = engine.get_current_player_id()
+        if final_id:
+            final_player = engine.state.get_player(final_id)
+            if final_player and not final_player.is_bot:
+                _start_turn_timer(sio, engine, room_code)
 
 
 async def _notify_lobby_update(sio: socketio.AsyncServer):
     """Notify lobby namespace clients of room list changes."""
     rooms = manager.get_lobby_rooms()
     # Emit to the /lobby namespace
-    try:
+    with contextlib.suppress(Exception):
         await sio.emit("rooms_updated", {"rooms": rooms}, namespace="/lobby")
-    except Exception:
-        pass

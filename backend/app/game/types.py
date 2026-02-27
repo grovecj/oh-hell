@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class Suit(str, Enum):
+class Suit(StrEnum):
     HEARTS = "hearts"
     DIAMONDS = "diamonds"
     CLUBS = "clubs"
     SPADES = "spades"
 
 
-class Rank(str, Enum):
+class Rank(StrEnum):
     TWO = "2"
     THREE = "3"
     FOUR = "4"
@@ -31,7 +31,7 @@ class Rank(str, Enum):
         return list(Rank).index(self)
 
 
-class GamePhase(str, Enum):
+class GamePhase(StrEnum):
     LOBBY = "lobby"
     DEALING = "dealing"
     BIDDING = "bidding"
@@ -41,7 +41,7 @@ class GamePhase(str, Enum):
     FINISHED = "finished"
 
 
-class ScoringVariant(str, Enum):
+class ScoringVariant(StrEnum):
     STANDARD = "standard"
     PROGRESSIVE = "progressive"
     BASIC = "basic"
@@ -111,6 +111,11 @@ class GameConfig:
     hook_rule: bool = True
     turn_timer_seconds: int = 30
     max_players: int = 7
+    max_hand_size: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.max_hand_size is not None and self.max_hand_size < 1:
+            self.max_hand_size = 1
 
     def to_dict(self) -> dict:
         return {
@@ -118,6 +123,7 @@ class GameConfig:
             "hook_rule": self.hook_rule,
             "turn_timer_seconds": self.turn_timer_seconds,
             "max_players": self.max_players,
+            "max_hand_size": self.max_hand_size,
         }
 
 
@@ -158,13 +164,16 @@ class GameState:
                 return p
         return None
 
-    def max_hand_size(self) -> int:
+    def effective_max_hand_size(self) -> int:
         if self.player_count == 0:
             return 0
-        return 52 // self.player_count
+        max_h = 52 // self.player_count
+        if self.config.max_hand_size is not None:
+            max_h = min(max_h, self.config.max_hand_size)
+        return max_h
 
     def round_sequence(self) -> list[int]:
-        max_h = self.max_hand_size()
+        max_h = self.effective_max_hand_size()
         up = list(range(1, max_h + 1))
         down = list(range(max_h - 1, 0, -1))
         return up + down

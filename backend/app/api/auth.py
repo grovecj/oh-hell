@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User
 from app.models.stats import UserStats
+from app.models.user import User
 from app.services.auth_service import create_token, decode_token
 
 router = APIRouter(tags=["auth"])
@@ -28,7 +28,7 @@ if settings.google_client_id:
 
 
 @router.post("/anonymous")
-async def create_anonymous(db: AsyncSession = Depends(get_db)):
+async def create_anonymous(db: AsyncSession = Depends(get_db)):  # noqa: B008
     user_id = uuid.uuid4()
     display_name = f"Player-{str(user_id)[:6].upper()}"
 
@@ -58,7 +58,7 @@ async def google_login(request: Request, state: str | None = None):
 
 
 @router.get("/google/callback")
-async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
+async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):  # noqa: B008
     if not settings.google_client_id:
         return {"error": "Google OAuth not configured"}
 

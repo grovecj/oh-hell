@@ -112,6 +112,22 @@ export default function GameLobby() {
                   <option value={120}>120s</option>
                 </select>
               </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-muted-foreground">Max Hand Size</label>
+                <select
+                  value={config.max_hand_size ?? 'full'}
+                  onChange={e => updateConfig({
+                    max_hand_size: e.target.value === 'full' ? null : Number(e.target.value),
+                  })}
+                  className="rounded bg-muted px-3 py-1 text-sm"
+                >
+                  <option value="full">Full</option>
+                  {Array.from({ length: 13 }, (_, i) => i + 1).map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         )}

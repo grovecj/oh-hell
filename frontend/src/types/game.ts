@@ -40,6 +40,7 @@ export interface GameConfig {
   hook_rule: boolean;
   turn_timer_seconds: number;
   max_players: number;
+  max_hand_size: number | null;
 }
 
 export interface GameState {

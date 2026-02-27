@@ -45,12 +45,15 @@ async def persist_game_results(db: AsyncSession, engine: GameEngine):
 
     # Create rounds and scores
     for round_idx, round_scores in enumerate(engine.state.scores_history):
-        rs = engine.state.round_state
         game_round = GameRound(
             id=uuid.uuid4(),
             game_id=game.id,
             round_number=round_idx + 1,
-            hand_size=engine.state.round_sequence()[round_idx] if round_idx < len(engine.state.round_sequence()) else 0,
+            hand_size=(
+                engine.state.round_sequence()[round_idx]
+                if round_idx < len(engine.state.round_sequence())
+                else 0
+            ),
             trump_suit=None,
             dealer_seat=round_idx % engine.state.player_count,
         )

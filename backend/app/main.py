@@ -1,20 +1,21 @@
 import logging
+from pathlib import Path
+
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("app").setLevel(logging.DEBUG)
 
-from app.config import settings
-from app.api.health import router as health_router
-from app.api.auth import router as auth_router
-from app.api.lobby import router as lobby_router
-from app.api.users import router as users_router
-from app.sockets.handlers import register_handlers
-from app.sockets.lobby_namespace import LobbyNamespace
+from app.api.auth import router as auth_router  # noqa: E402
+from app.api.health import router as health_router  # noqa: E402
+from app.api.lobby import router as lobby_router  # noqa: E402
+from app.api.users import router as users_router  # noqa: E402
+from app.config import settings  # noqa: E402
+from app.sockets.handlers import register_handlers  # noqa: E402
+from app.sockets.lobby_namespace import LobbyNamespace  # noqa: E402
 
 app = FastAPI(title="Oh Hell Online", version="0.1.0")
 
